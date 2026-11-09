@@ -36,28 +36,28 @@ export class Campfire {
       metalness: 0.05
     });
 
-    // Glowing hot coals (dynamic animated emissive pulse)
+    // Glowing hot coals (merged into single static base with emissive glow)
+    const coalCol = 0x3a1005;
     for (let i = 0; i < 7; i++) {
       const angle = (i / 7) * Math.PI * 2 + Math.random() * 0.4;
       const dist = 0.2 + Math.random() * 0.35;
-      const coal = voxel.addBlock(
-        this.group,
+      voxel.addBlock(
+        staticBase,
         0.2 + Math.random() * 0.15,
         0.1 + Math.random() * 0.08,
         0.2 + Math.random() * 0.15,
-        0x3a1005,
+        coalCol,
         Math.cos(angle) * dist,
         0.12,
         Math.sin(angle) * dist,
         {
           roughness: 0.8,
           emissive: 0xff3300,
-          emissiveIntensity: 0.7,
-          castShadow: false
+          emissiveIntensity: 0.8,
+          castShadow: false,
+          receiveShadow: false
         }
       );
-      coal.userData.isDynamic = true;
-      this.flameBlocks.push({ mesh: coal, type: 'coal', baseScale: coal.scale.clone(), phase: Math.random() * 10 });
     }
 
     // 2. Stone perimeter ring
@@ -141,9 +141,9 @@ export class Campfire {
         roughness: 0.3,
         emissive: cfg.em,
         emissiveIntensity: cfg.emInt,
-        transparent: true,
-        opacity: 0.92,
-        castShadow: false
+        transparent: false,
+        castShadow: false,
+        receiveShadow: false
       });
       mesh.userData.isDynamic = true;
       this.flameBlocks.push({
@@ -222,14 +222,15 @@ export class Campfire {
   }
 
   buildSmokeParticles() {
-    // 8 rising voxel smoke cubes that loop
-    const smokeCount = 8;
+    // 4 rising voxel smoke cubes that loop
+    const smokeCount = 4;
     for (let i = 0; i < smokeCount; i++) {
       const mesh = voxel.addBlock(this.group, 0.28, 0.28, 0.28, 0x4a4745, 0, 1.2, 0, {
         roughness: 0.9,
         transparent: true,
-        opacity: 0.4,
-        castShadow: false
+        opacity: 0.35,
+        castShadow: false,
+        receiveShadow: false
       });
       mesh.visible = false;
       mesh.userData.isDynamic = true;
@@ -254,15 +255,10 @@ export class Campfire {
       if (item.type === 'flame') {
         const sine = Math.sin(time * item.speed + item.phase);
         const cos = Math.cos(time * item.speed * 0.7 + item.phase);
-        // Scaling height and width
         item.mesh.scale.y = Math.max(0.3, item.baseScale.y * (1.0 + sine * 0.35));
         item.mesh.scale.x = item.baseScale.x * (1.0 + cos * 0.15);
         item.mesh.scale.z = item.baseScale.z * (1.0 - cos * 0.15);
         item.mesh.position.y = item.baseY + sine * 0.04;
-      } else if (item.type === 'coal') {
-        // Subtle coal ember pulsation
-        const pulse = 0.5 + Math.sin(time * 3 + item.phase) * 0.4;
-        item.mesh.material.emissiveIntensity = pulse;
       }
     });
 

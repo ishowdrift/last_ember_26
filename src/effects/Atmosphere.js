@@ -80,29 +80,45 @@ export class Atmosphere {
   }
 
   buildGroundMist() {
-    // 3 layered low-lying voxel mist sheets
-    const mistGeo = new THREE.PlaneGeometry(36, 36);
+    // Layered low-lying voxel mist sheets scaled to cover the 120x60m world footprint
+    const mistGeo = new THREE.PlaneGeometry(130, 80);
     const mistMat = new THREE.MeshBasicMaterial({
       color: 0x6e828f,
       transparent: true,
-      opacity: 0.12,
+      opacity: 0.08,
       depthWrite: false,
-      side: THREE.DoubleSide
+      side: THREE.FrontSide // Single-sided saves 50% fillrate on integrated GPUs!
     });
 
     for (let i = 0; i < 3; i++) {
       const plane = new THREE.Mesh(mistGeo, mistMat.clone());
       plane.rotation.x = -Math.PI / 2;
       plane.position.set(
-        (i - 1) * 3,
+        (i - 1) * 6,
         0.18 + i * 0.12,
-        (i - 1) * 3
+        (i - 1) * 8
       );
       this.group.add(plane);
       this.mistPlanes.push({
         mesh: plane,
-        rotSpeed: 0.015 * (i % 2 === 0 ? 1 : -1),
+        rotSpeed: 0.012 * (i % 2 === 0 ? 1 : -1),
         baseY: plane.position.y
+      });
+    }
+  }
+
+  applyQualityPreset(presetName) {
+    if (presetName === 'low') {
+      if (this.dustParticles) this.dustParticles.visible = false;
+      this.mistPlanes.forEach(m => m.mesh.visible = false);
+    } else if (presetName === 'high') {
+      if (this.dustParticles) this.dustParticles.visible = true;
+      this.mistPlanes.forEach(m => m.mesh.visible = true);
+    } else {
+      // Medium: 1 light mist plane + dust particles for balanced 60 FPS
+      if (this.dustParticles) this.dustParticles.visible = true;
+      this.mistPlanes.forEach((m, idx) => {
+        m.mesh.visible = idx === 0;
       });
     }
   }

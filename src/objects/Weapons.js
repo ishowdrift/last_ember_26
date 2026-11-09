@@ -20,8 +20,8 @@ export class Weapons {
     this.buildPistol();
     this.buildWeaponAccessories();
 
-    // Merge static firearms and accessories into unified draw calls
-    voxel.mergeStaticGroup(this.group, { castShadow: true, receiveShadow: true });
+    // Merge static firearms and accessories into unified draw calls with fast shadows
+    voxel.mergeStaticGroup(this.group, { castShadow: true, receiveShadow: false });
   }
 
   buildWeaponRackMounts() {

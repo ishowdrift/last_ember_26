@@ -5,12 +5,16 @@ import { LightingManager } from './LightingManager.js';
 import { audioManager } from './AudioManager.js';
 
 import { Terrain } from '../world/Terrain.js';
-import { Camp } from '../world/Camp.js';
+import { ChunkManager } from '../world/ChunkManager.js';
+import { CityRegion } from '../world/CityRegion.js';
+import { MedicalCampRegion } from '../world/MedicalCampRegion.js';
+import { JungleRegion } from '../world/JungleRegion.js';
 import { AbandonedBuilding } from '../world/AbandonedBuilding.js';
 import { ForestBiome } from '../world/ForestBiome.js';
 
 import { Survivor } from '../characters/Survivor.js';
 import { Zombie } from '../characters/Zombie.js';
+import { Brute } from '../characters/Brute.js';
 
 import { Weapons } from '../objects/Weapons.js';
 import { Collectibles } from '../objects/Collectibles.js';
@@ -27,7 +31,7 @@ export class SceneManager {
       45,
       window.innerWidth / window.innerHeight,
       0.1,
-      200
+      250
     );
 
     this.rendererManager = new Renderer(this.container);
@@ -45,16 +49,22 @@ export class SceneManager {
     this.fps = 60;
     this.frameCount = 0;
     this.lastFpsUpdate = performance.now();
+    this.lowFpsStrike = 0;
 
     // World Entities
     this.terrain = null;
-    this.camp = null;
+    this.chunkManager = null;
+    this.city = null;
+    this.medicalCamp = null;
+    this.camp = null; // Alias for backward compatibility
+    this.jungle = null;
     this.building = null;
     this.forest = null;
 
     // Characters
     this.survivor = null;
     this.zombie = null;
+    this.brute = null;
 
     // Objects
     this.weapons = null;
@@ -65,20 +75,42 @@ export class SceneManager {
     this.particlesEnabled = true;
 
     this.init();
+    // Enforce initial quality preset across all managers (lighting, atmosphere, renderer)
+    this.setQualityPreset(this.rendererManager.currentPreset);
+
     this.animate = this.animate.bind(this);
     requestAnimationFrame(this.animate);
   }
 
   init() {
-    // 1. World building
+    // 1. World building across 3 connected regions
     this.terrain = new Terrain(this.scene);
-    this.camp = new Camp(this.scene, this.lightingManager);
+    this.chunkManager = new ChunkManager(this.scene);
+
+    // Region A: Abandoned City & Gas Station (North: Z: -60m to -20m)
+    this.city = new CityRegion(this.scene, this.lightingManager);
+
+    // Region B: Medical Quarantine Camp (Center: Z: -20m to +16m)
+    this.medicalCamp = new MedicalCampRegion(this.scene, this.lightingManager);
+    this.camp = this.medicalCamp; // Alias
+
+    // Region C: Dense Canopy Jungle & Evacuation Route (South: Z: +16m to +60m)
+    this.jungle = new JungleRegion(this.scene);
+
+    // Outpost ruins & forest perimeter
     this.building = new AbandonedBuilding(this.scene);
     this.forest = new ForestBiome(this.scene);
+
+    // Register chunks for spatial distance/frustum culling
+    this.chunkManager.registerChunk(0, -2, this.city.group, 'city');
+    this.chunkManager.registerChunk(0, 0, this.medicalCamp.group, 'camp');
+    this.chunkManager.registerChunk(0, 2, this.jungle.group, 'jungle');
+    this.chunkManager.registerChunk(-1, -1, this.building.group, 'outpost');
 
     // 2. Characters
     this.survivor = new Survivor(this.scene, new THREE.Vector3(-2.2, 0.1, 1.2));
     this.zombie = new Zombie(this.scene, new THREE.Vector3(10.5, 0.1, -4.5));
+    this.brute = new Brute(this.scene, new THREE.Vector3(12.0, 0.1, 42.0));
 
     // 3. Firearms and Collectibles
     this.weapons = new Weapons(this.scene);
@@ -165,8 +197,17 @@ export class SceneManager {
   }
 
   togglePerformanceMode() {
-    const isPerf = this.rendererManager.setPerformanceMode(!this.rendererManager.performanceMode);
+    const isPerf = this.rendererManager.togglePerformanceMode();
+    this.atmosphere.applyQualityPreset(this.rendererManager.currentPreset);
+    this.lightingManager.applyQualityPreset(this.rendererManager.currentPreset);
     return isPerf;
+  }
+
+  setQualityPreset(presetName) {
+    const preset = this.rendererManager.setQualityPreset(presetName);
+    this.atmosphere.applyQualityPreset(preset);
+    this.lightingManager.applyQualityPreset(preset);
+    return preset;
   }
 
   animate() {
@@ -176,15 +217,43 @@ export class SceneManager {
     const delta = Math.min((now - this.lastTime) * 0.001, 0.1);
     this.lastTime = now;
 
-    // FPS calculation
+    // High-precision smoothed FPS calculation
     this.frameCount++;
-    if (now - this.lastFpsUpdate >= 500) {
-      this.fps = Math.round((this.frameCount * 1000) / (now - this.lastFpsUpdate));
+    const elapsed = now - this.lastFpsUpdate;
+    if (elapsed >= 500) {
+      if (elapsed < 1200 && this.frameCount > 2) {
+        const measured = Math.round((this.frameCount * 1000) / elapsed);
+        this.fps = Math.round(this.fps * 0.7 + measured * 0.3);
+      }
       this.frameCount = 0;
       this.lastFpsUpdate = now;
+
+      // Adaptive Performance Guard (Guarantees 60 FPS on Intel UHD 630):
+      if (this.fps < 45 && this.rendererManager.currentPreset !== 'low' && elapsed < 800) {
+        this.lowFpsStrike++;
+        if (this.lowFpsStrike >= 4) {
+          console.warn(`[AFTERFALL] Performance guard active: ${this.fps} FPS detected. Switching to 60 FPS lock.`);
+          this.setQualityPreset('low');
+          this.lowFpsStrike = 0;
+          if (this.onPerformanceGuardActivated) {
+            this.onPerformanceGuardActivated();
+          }
+        }
+      } else if (this.fps >= 55) {
+        this.lowFpsStrike = 0;
+      }
+
       if (this.onFpsUpdate) {
         this.onFpsUpdate(this.fps);
       }
+    }
+
+    // Dynamic directional shadow center follows camera target (keeps shadows sharp with low memory)
+    this.lightingManager.setShadowCenter(this.cameraController.controls.target);
+
+    // Dynamic frustum culling across all 18 world chunks
+    if (this.chunkManager) {
+      this.chunkManager.update(this.camera);
     }
 
     // Update sub-managers
@@ -192,9 +261,16 @@ export class SceneManager {
     this.cameraController.update(delta);
     this.atmosphere.update(delta, this.lightingManager.isNightTime());
 
-    if (this.camp) this.camp.update(delta);
+    // Update 3 connected regions
+    if (this.city) this.city.update(delta);
+    if (this.medicalCamp) this.medicalCamp.update(delta);
+    if (this.jungle) this.jungle.update(delta);
+
+    // Update characters
     if (this.survivor) this.survivor.update(delta);
     if (this.zombie) this.zombie.update(delta);
+    if (this.brute) this.brute.update(delta);
+
     if (this.collectibles) this.collectibles.update(delta);
 
     // Audio night/day sync

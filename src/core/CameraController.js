@@ -78,33 +78,77 @@ export class CameraController {
     this.startLookAt = new THREE.Vector3();
     this.targetLookAt = new THREE.Vector3();
 
-    // 8 Focus Target Definitions
+    // 8 Core Cinematic Focus Targets across all 3 Connected Regions
     this.focusTargets = {
       overview: {
-        position: new THREE.Vector3(14, 12, 16),
+        position: new THREE.Vector3(26, 22, 28),
         target: new THREE.Vector3(0, 1.0, 0),
-        label: 'Cinematic Overview',
+        label: 'Three-Region World Overview',
         tag: 'SURVEILLANCE',
-        desc: 'Broad aerial surveillance of the survivor camp, cracked highway, and surrounding pine forest.'
+        desc: 'Broad aerial overview showing the entire 120m world: Abandoned City (North), Medical Camp (Center), and Dense Jungle (South).'
       },
-      camp: {
-        position: new THREE.Vector3(4.2, 3.2, 4.8),
+      city: {
+        position: new THREE.Vector3(-6, 9.5, -28),
+        target: new THREE.Vector3(-14, 4.0, -42),
+        label: 'Abandoned City Boulevard',
+        tag: 'REGION A',
+        desc: 'Urban ruins with 3-story brick and ivy apartment blocks, metal fire escapes, abandoned sedan, and utility truck.'
+      },
+      gasStation: {
+        position: new THREE.Vector3(6, 6.0, -32),
+        target: new THREE.Vector3(14, 2.2, -42),
+        label: 'Last Stop Gas Station',
+        tag: 'REGION A POI',
+        desc: 'Mint-green convenience store, weathered corrugated canopy with rusted rebar, 3 dual-nozzle fuel pumps, and oil barrels.'
+      },
+      medicalCamp: {
+        position: new THREE.Vector3(7.0, 6.0, 8.5),
         target: new THREE.Vector3(0, 0.8, 0),
-        label: 'Survivor Camp',
-        tag: 'MAIN BASE',
-        desc: 'Central survival camp with active animated campfire, canvas tent, supply crates, and wooden defenses.'
+        label: 'Medical Quarantine Camp',
+        tag: 'REGION B',
+        desc: 'Field triage canvas tents with red crosses, doctor cots, IV drip stands, oxygen tanks, watchtower, and central campfire.'
       },
       survivor: {
         position: new THREE.Vector3(-0.6, 1.35, 2.8),
         target: new THREE.Vector3(-2.2, 1.05, 1.2),
-        label: 'The Survivor',
-        tag: 'OPERATOR',
-        desc: 'Scavenger survivor equipped with tactical vest, bugout bag, combat knife, and field radio.'
+        label: 'Survivor Operator',
+        tag: 'SURVIVOR',
+        desc: 'Scavenger survivor equipped with tactical vest, bugout bag, combat knife, field radio, and carbine rifle.'
+      },
+      brute: {
+        position: new THREE.Vector3(9.2, 2.6, 38.5),
+        target: new THREE.Vector3(12.0, 1.8, 42.0),
+        label: 'The Brute (Apex Mutant)',
+        tag: 'APEX THREAT',
+        desc: 'Hulking 2.6m titan mutant with slate-grey hide, glowing volcanic magma veins, and massive crushing stone fists.'
+      },
+      rescuePoint: {
+        position: new THREE.Vector3(-4.5, 2.8, 42.0),
+        target: new THREE.Vector3(-8.0, 1.0, 46.0),
+        label: 'Civilian Rescue Point',
+        tag: 'REGION C OBJECTIVE',
+        desc: 'Overturned police cruiser with flashing emergency hazard beacon, skid marks, shattered glass, and distress flare.'
+      },
+      jungle: {
+        position: new THREE.Vector3(0, 11.0, 24),
+        target: new THREE.Vector3(-2, 2.0, 38),
+        label: 'Dense Canopy Jungle',
+        tag: 'REGION C',
+        desc: 'Towering 14m conifer canopy, charred lightning snags, fallen log bridge crossing the gully, and dense undergrowth.'
+      },
+
+      // Backward-compatibility aliases
+      camp: {
+        position: new THREE.Vector3(4.5, 4.2, 5.5),
+        target: new THREE.Vector3(0, 0.8, 0),
+        label: 'Medical Quarantine Camp',
+        tag: 'REGION B',
+        desc: 'Field triage canvas tents with red crosses, doctor cots, IV drip stands, oxygen tanks, watchtower, and central campfire.'
       },
       zombie: {
         position: new THREE.Vector3(7.2, 1.35, -4.5),
         target: new THREE.Vector3(10.5, 1.1, -4.5),
-        label: 'The Infected',
+        label: 'The Infected Runner',
         tag: 'BIOHAZARD',
         desc: 'Mutated infected runner with necrotic flesh, exposed ribcage, reaching claws, and luminescent yellow eyes.'
       },

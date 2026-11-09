@@ -47,8 +47,8 @@ export class LightingManager {
     this.sunLight.shadow.camera.near = 1.0;
     this.sunLight.shadow.camera.far = 90;
     
-    // Tightly focused shadow bounds matching the camp and surroundings
-    const d = 26;
+    // Tightly focused shadow bounds matching active gameplay area
+    const d = 32;
     this.sunLight.shadow.camera.left = -d;
     this.sunLight.shadow.camera.right = d;
     this.sunLight.shadow.camera.top = d;
@@ -56,6 +56,9 @@ export class LightingManager {
     this.sunLight.shadow.bias = -0.0005;
     this.sunLight.shadow.normalBias = 0.02;
     this.scene.add(this.sunLight);
+
+    // Dynamic focal center for shadow camera tracking
+    this.shadowCenter = new THREE.Vector3(0, 0, 0);
 
     // 4. Central Campfire Point Light
     // Note: castShadow is disabled on point lights to maintain 60+ FPS on all hardware
@@ -83,6 +86,28 @@ export class LightingManager {
       flickerPhase: Math.random() * Math.PI * 2
     });
     return light;
+  }
+
+  setShadowCenter(pos) {
+    if (pos) {
+      this.shadowCenter.set(pos.x, 0, pos.z);
+    }
+  }
+
+  applyQualityPreset(presetName) {
+    if (presetName === 'low') {
+      this.sunLight.castShadow = false;
+      this.campfireLight.distance = 15;
+    } else if (presetName === 'high') {
+      this.sunLight.castShadow = true;
+      this.sunLight.shadow.mapSize.set(2048, 2048);
+      this.campfireLight.distance = 26;
+    } else {
+      // Medium (Default)
+      this.sunLight.castShadow = true;
+      this.campfireLight.distance = 22;
+    }
+    this.sunLight.shadow.needsUpdate = true;
   }
 
   setTime(time, smooth = false) {
@@ -124,8 +149,9 @@ export class LightingManager {
     const sunX = Math.cos(sunAngle) * sunDist;
     const sunZ = Math.cos(sunAngle * 0.5) * 15;
 
-    this.sunLight.position.set(sunX, Math.max(1, sunY), sunZ);
-    this.sunLight.target.position.set(0, 0, 0);
+    this.sunLight.position.set(this.shadowCenter.x + sunX, this.shadowCenter.y + Math.max(1, sunY), this.shadowCenter.z + sunZ);
+    this.sunLight.target.position.copy(this.shadowCenter);
+    this.sunLight.target.updateMatrixWorld();
 
     const isDay = t >= 5.5 && t <= 19.5;
     const isDusk = (t >= 17.5 && t <= 19.5) || (t >= 5.5 && t <= 7.5);

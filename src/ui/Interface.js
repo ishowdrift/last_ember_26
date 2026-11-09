@@ -46,8 +46,11 @@ export class Interface {
         </div>
 
         <div class="top-actions">
-          <button id="btn-perf-mode" class="btn-tactical active" title="Toggle 60 FPS Target Lock">
+          <button id="btn-perf-mode" class="btn-tactical active" title="60 FPS Target Lock Toggle">
             <span>⚡</span> <span id="perf-label">60 FPS LOCK</span>
+          </button>
+          <button id="btn-quality" class="btn-tactical" title="Switch Quality Tier (Low / Med / High)">
+            <span>⚙️</span> <span id="quality-label">PRESET: MED</span>
           </button>
           <button id="btn-audio" class="btn-tactical" title="Toggle Synthesized Audio Ambience">
             <span id="audio-icon">🔇</span> <span id="audio-label">AUDIO OFF</span>
@@ -73,47 +76,47 @@ export class Interface {
             <span style="font-size: 8.5px; color: var(--amber-glow);">[8 TARGETS]</span>
           </div>
           <button class="nav-item-btn active" data-target="overview">
-            <span>CINEMATIC OVERVIEW</span>
+            <span>3-REGION WORLD OVERVIEW</span>
             <span class="nav-tag">CAM 01</span>
           </button>
-          <button class="nav-item-btn" data-target="camp">
-            <span>SURVIVOR CAMP</span>
-            <span class="nav-tag">BASE</span>
+          <button class="nav-item-btn" data-target="city">
+            <span>ABANDONED CITY BOULEVARD</span>
+            <span class="nav-tag">REG A</span>
+          </button>
+          <button class="nav-item-btn" data-target="gasStation">
+            <span>LAST STOP GAS STATION</span>
+            <span class="nav-tag">POI A</span>
+          </button>
+          <button class="nav-item-btn" data-target="medicalCamp">
+            <span>MEDICAL QUARANTINE CAMP</span>
+            <span class="nav-tag">REG B</span>
           </button>
           <button class="nav-item-btn" data-target="survivor">
-            <span>THE SURVIVOR</span>
-            <span class="nav-tag">JACK</span>
+            <span>THE SURVIVOR (JACK)</span>
+            <span class="nav-tag">OPERATOR</span>
           </button>
-          <button class="nav-item-btn" data-target="zombie">
-            <span>THE INFECTED</span>
-            <span class="nav-tag">MUTANT</span>
+          <button class="nav-item-btn" data-target="brute">
+            <span>THE BRUTE (APEX MUTANT)</span>
+            <span class="nav-tag">APEX</span>
           </button>
-          <button class="nav-item-btn" data-target="weapons">
-            <span>WEAPON WORKBENCH</span>
-            <span class="nav-tag">ARMORY</span>
+          <button class="nav-item-btn" data-target="rescuePoint">
+            <span>CIVILIAN RESCUE POINT</span>
+            <span class="nav-tag">REG C</span>
           </button>
-          <button class="nav-item-btn" data-target="collectibles">
-            <span>SURVIVAL SUPPLIES</span>
-            <span class="nav-tag">CACHE</span>
-          </button>
-          <button class="nav-item-btn" data-target="outpost">
-            <span>ABANDONED OUTPOST</span>
-            <span class="nav-tag">RUINS</span>
-          </button>
-          <button class="nav-item-btn" data-target="highway">
-            <span>FOREST HIGHWAY</span>
-            <span class="nav-tag">PERIM</span>
+          <button class="nav-item-btn" data-target="jungle">
+            <span>DENSE CANOPY JUNGLE</span>
+            <span class="nav-tag">CORRIDOR</span>
           </button>
         </nav>
 
         <!-- TARGET INTEL DOSSIER (Center-left) -->
         <div id="intel-card" class="hud-panel intel-card interactive">
           <div class="intel-header">
-            <span id="intel-title" class="intel-title">CINEMATIC OVERVIEW</span>
+            <span id="intel-title" class="intel-title">3-REGION WORLD OVERVIEW</span>
             <span id="intel-tag" class="intel-tag">SURVEILLANCE</span>
           </div>
           <div id="intel-desc" class="intel-desc">
-            Broad aerial surveillance of the survivor camp, cracked highway, and surrounding pine forest.
+            Broad aerial surveillance across all 3 connected regions: Abandoned City (North), Medical Camp (Center), and Dense Jungle (South).
           </div>
         </div>
 
@@ -128,7 +131,8 @@ export class Interface {
             
             <div class="tab-group">
               <button id="tab-survivor" class="tab-btn active">SURVIVOR</button>
-              <button id="tab-zombie" class="tab-btn">THE INFECTED</button>
+              <button id="tab-zombie" class="tab-btn">INFECTED</button>
+              <button id="tab-brute" class="tab-btn">THE BRUTE</button>
             </div>
 
             <!-- Survivor Animations -->
@@ -145,6 +149,12 @@ export class Interface {
               <button class="anim-btn" data-char="zombie" data-anim="walk">INFECTED WALK</button>
               <button class="anim-btn" data-char="zombie" data-anim="attack">LUNGE ATTACK</button>
               <button class="anim-btn" data-char="zombie" data-anim="stagger">STAGGER RECOIL</button>
+            </div>
+
+            <!-- Brute Animations -->
+            <div id="anim-deck-brute" class="anim-grid" style="display: none;">
+              <button class="anim-btn active" data-char="brute" data-anim="idle">IDLE (HEAVE)</button>
+              <button class="anim-btn" data-char="brute" data-anim="roar">ROAR & SLAM</button>
             </div>
           </div>
 
@@ -255,11 +265,13 @@ export class Interface {
         const target = btn.getAttribute('data-target');
         this.sm.setFocus(target);
 
-        // Auto-switch character tab if survivor or zombie is clicked
+        // Auto-switch character tab if character is clicked
         if (target === 'survivor') {
           this.switchCharTab('survivor');
         } else if (target === 'zombie') {
           this.switchCharTab('zombie');
+        } else if (target === 'brute') {
+          this.switchCharTab('brute');
         }
       });
     });
@@ -267,8 +279,10 @@ export class Interface {
     // 2. Character Tabs
     const tabSurvivor = document.getElementById('tab-survivor');
     const tabZombie = document.getElementById('tab-zombie');
-    tabSurvivor.addEventListener('click', () => this.switchCharTab('survivor'));
-    tabZombie.addEventListener('click', () => this.switchCharTab('zombie'));
+    const tabBrute = document.getElementById('tab-brute');
+    if (tabSurvivor) tabSurvivor.addEventListener('click', () => this.switchCharTab('survivor'));
+    if (tabZombie) tabZombie.addEventListener('click', () => this.switchCharTab('zombie'));
+    if (tabBrute) tabBrute.addEventListener('click', () => this.switchCharTab('brute'));
 
     // 3. Animation Selector Buttons
     const animBtns = document.querySelectorAll('.anim-btn');
@@ -283,9 +297,11 @@ export class Interface {
         if (char === 'survivor') {
           this.survivorAnim = anim;
           this.sm.setSurvivorAnimation(anim);
-        } else {
+        } else if (char === 'zombie') {
           this.zombieAnim = anim;
           this.sm.setZombieAnimation(anim);
+        } else if (char === 'brute') {
+          if (this.sm.brute) this.sm.brute.setAnimation(anim);
         }
         this.sm.audioManager.playUiClick();
       });
@@ -314,19 +330,39 @@ export class Interface {
       });
     });
 
-    // 6. Performance Mode Toggle
+    // 6. Performance Mode & Quality Tier Selectors
     const btnPerf = document.getElementById('btn-perf-mode');
     const perfLabel = document.getElementById('perf-label');
+    const btnQuality = document.getElementById('btn-quality');
+    const qualityLabel = document.getElementById('quality-label');
+
+    const updateQualityButtons = (preset) => {
+      if (perfLabel) perfLabel.textContent = preset === 'low' ? '60 FPS LOCKED' : '60 FPS LOCK';
+      if (btnPerf) btnPerf.classList.toggle('active', preset === 'low');
+      if (qualityLabel) qualityLabel.textContent = `PRESET: ${preset.toUpperCase()}`;
+    };
+
     if (btnPerf) {
       btnPerf.addEventListener('click', () => {
         const isPerf = this.sm.togglePerformanceMode();
-        btnPerf.classList.toggle('active', isPerf);
-        if (perfLabel) {
-          perfLabel.textContent = isPerf ? '60 FPS LOCK' : 'HIGH RES';
-        }
+        updateQualityButtons(isPerf ? 'low' : 'medium');
         this.sm.audioManager.playUiClick();
       });
     }
+
+    if (btnQuality) {
+      btnQuality.addEventListener('click', () => {
+        const current = this.sm.rendererManager.currentPreset;
+        const next = current === 'low' ? 'medium' : current === 'medium' ? 'high' : 'low';
+        this.sm.setQualityPreset(next);
+        updateQualityButtons(next);
+        this.sm.audioManager.playUiClick();
+      });
+    }
+
+    this.sm.onPerformanceGuardActivated = () => {
+      updateQualityButtons('low');
+    };
 
     // 7. Quick Day/Night Toggle
     const btnQuickDn = document.getElementById('btn-quick-dn');
@@ -438,20 +474,19 @@ export class Interface {
     this.activeCharacterTab = char;
     const tabSurvivor = document.getElementById('tab-survivor');
     const tabZombie = document.getElementById('tab-zombie');
+    const tabBrute = document.getElementById('tab-brute');
     const deckSurvivor = document.getElementById('anim-deck-survivor');
     const deckZombie = document.getElementById('anim-deck-zombie');
+    const deckBrute = document.getElementById('anim-deck-brute');
 
-    if (char === 'survivor') {
-      tabSurvivor.classList.add('active');
-      tabZombie.classList.remove('active');
-      deckSurvivor.style.display = 'grid';
-      deckZombie.style.display = 'none';
-    } else {
-      tabSurvivor.classList.remove('active');
-      tabZombie.classList.add('active');
-      deckSurvivor.style.display = 'none';
-      deckZombie.style.display = 'grid';
-    }
+    if (tabSurvivor) tabSurvivor.classList.toggle('active', char === 'survivor');
+    if (tabZombie) tabZombie.classList.toggle('active', char === 'zombie');
+    if (tabBrute) tabBrute.classList.toggle('active', char === 'brute');
+
+    if (deckSurvivor) deckSurvivor.style.display = char === 'survivor' ? 'grid' : 'none';
+    if (deckZombie) deckZombie.style.display = char === 'zombie' ? 'grid' : 'none';
+    if (deckBrute) deckBrute.style.display = char === 'brute' ? 'grid' : 'none';
+
     this.sm.audioManager.playUiClick();
   }
 

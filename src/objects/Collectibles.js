@@ -18,7 +18,7 @@ export class Collectibles {
     this.buildDisplayPallet();
     this.buildCollectibles();
     // Merge static pallet and pedestals (items are marked isDynamic and remain separate)
-    voxel.mergeStaticGroup(this.group, { castShadow: true, receiveShadow: true });
+    voxel.mergeStaticGroup(this.group, { castShadow: true, receiveShadow: false });
   }
 
   buildDisplayPallet() {
@@ -38,12 +38,6 @@ export class Collectibles {
   }
 
   registerItem(group, name, basePos) {
-    // Merge internal blocks of the item into minimal draw calls (small items don't need shadow map passes)
-    voxel.mergeStaticGroup(group, { castShadow: false, receiveShadow: true });
-    // Mark item dynamic so it is excluded from pallet merge and animated smoothly
-    group.userData.isDynamic = true;
-    group.traverse(o => { o.userData.isDynamic = true; });
-
     this.group.add(group);
     this.items.push({
       group,
@@ -51,6 +45,12 @@ export class Collectibles {
       baseY: basePos.y,
       phase: Math.random() * Math.PI * 2
     });
+  }
+
+  update(delta) {
+    // Subtle breathing pulsation on the pallet display
+    const time = performance.now() * 0.002;
+    this.group.position.y = this.position.y + Math.sin(time) * 0.015;
   }
 
   buildPedestal(x, z, labelColor = 0xffaa22) {
@@ -204,14 +204,5 @@ export class Collectibles {
     tools.add(crowbar);
 
     this.registerItem(tools, 'Survival Tools', tools.position);
-  }
-
-  update(delta) {
-    // Gentle hovering animation for collectibles
-    const time = performance.now() * 0.002;
-    this.items.forEach((item) => {
-      item.group.position.y = item.baseY + Math.sin(time * 2.0 + item.phase) * 0.025;
-      item.group.rotation.y = Math.sin(time * 1.2 + item.phase) * 0.1;
-    });
   }
 }

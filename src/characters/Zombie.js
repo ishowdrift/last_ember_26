@@ -190,9 +190,19 @@ export class Zombie {
     voxel.addBlock(rightShin, 0.17, 0.16, 0.24, 0x221812, 0, -0.36, 0.02);
 
     // Merge internal geometries of static sub-parts
-    voxel.mergeStaticGroup(head, { castShadow: true, receiveShadow: true });
-    voxel.mergeStaticGroup(leftShin, { castShadow: true, receiveShadow: true });
-    voxel.mergeStaticGroup(rightShin, { castShadow: true, receiveShadow: true });
+    voxel.mergeStaticGroup(head, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(leftForearm, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(rightForearm, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(leftShin, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(rightShin, { castShadow: true, receiveShadow: false });
+
+    // Set receiveShadow = false for 60 FPS performance
+    this.group.traverse(c => {
+      if (c.isMesh) {
+        c.receiveShadow = false;
+        c.castShadow = true;
+      }
+    });
   }
 
   setAnimation(animName) {

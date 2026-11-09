@@ -202,12 +202,22 @@ export class Survivor {
     voxel.addBlock(rightShin, 0.19, 0.14, 0.08, 0x1f2326, 0, -0.06, 0.11);
     voxel.addBlock(rightShin, 0.18, 0.2, 0.26, bootCol, 0, -0.36, 0.03);
 
-    // Merge internal geometries of static sub-parts for high frame rate
-    voxel.mergeStaticGroup(head, { castShadow: true, receiveShadow: true });
-    voxel.mergeStaticGroup(backpack, { castShadow: true, receiveShadow: true });
-    voxel.mergeStaticGroup(rifle, { castShadow: true, receiveShadow: true });
-    voxel.mergeStaticGroup(leftShin, { castShadow: true, receiveShadow: true });
-    voxel.mergeStaticGroup(rightShin, { castShadow: true, receiveShadow: true });
+    // Merge internal geometries of static sub-parts for peak 60 FPS
+    voxel.mergeStaticGroup(head, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(backpack, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(rifle, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(leftForearm, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(rightForearm, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(leftShin, { castShadow: true, receiveShadow: false });
+    voxel.mergeStaticGroup(rightShin, { castShadow: true, receiveShadow: false });
+
+    // Ensure all character meshes have receiveShadow = false for 60 FPS performance
+    this.group.traverse(c => {
+      if (c.isMesh) {
+        c.receiveShadow = false;
+        c.castShadow = true;
+      }
+    });
   }
 
   buildHeldRifle() {
