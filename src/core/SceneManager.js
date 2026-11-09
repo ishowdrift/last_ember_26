@@ -21,6 +21,14 @@ import { Collectibles } from '../objects/Collectibles.js';
 
 import { Atmosphere } from '../effects/Atmosphere.js';
 
+// Playable FPS 0.2 Systems
+import { CollisionSystem } from '../fps/CollisionSystem.js';
+import { FPSController } from '../fps/FPSController.js';
+import { FPSViewmodel } from '../fps/FPSViewmodel.js';
+import { WeaponManager } from '../fps/WeaponManager.js';
+import { ZombieManager } from '../fps/ZombieManager.js';
+import { PickupManager } from '../fps/PickupManager.js';
+
 export class SceneManager {
   constructor(canvasContainer) {
     this.container = canvasContainer;
@@ -28,9 +36,9 @@ export class SceneManager {
     // Core Three.js components
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(
-      45,
+      68,
       window.innerWidth / window.innerHeight,
-      0.1,
+      0.08,
       250
     );
 
@@ -43,6 +51,9 @@ export class SceneManager {
     this.lightingManager = new LightingManager(this.scene);
     this.atmosphere = new Atmosphere(this.scene);
     this.audioManager = audioManager;
+
+    // Mode: 'fps' (playable first-person shooter) vs 'spectator' (cinematic overview)
+    this.gameMode = 'fps';
 
     // High precision timing and FPS
     this.lastTime = performance.now();
@@ -69,6 +80,15 @@ export class SceneManager {
     // Objects
     this.weapons = null;
     this.collectibles = null;
+
+    // FPS Gameplay Subsystems
+    this.collision = null;
+    this.fpsController = null;
+    this.viewmodel = null;
+    this.weaponManager = null;
+    this.zombieManager = null;
+    this.pickupManager = null;
+    this.fpsInterface = null;
 
     // State
     this.fogEnabled = true;
@@ -107,14 +127,67 @@ export class SceneManager {
     this.chunkManager.registerChunk(0, 2, this.jungle.group, 'jungle');
     this.chunkManager.registerChunk(-1, -1, this.building.group, 'outpost');
 
-    // 2. Characters
+    // 2. Decorative static characters for camp lore
     this.survivor = new Survivor(this.scene, new THREE.Vector3(-2.2, 0.1, 1.2));
-    this.zombie = new Zombie(this.scene, new THREE.Vector3(10.5, 0.1, -4.5));
-    this.brute = new Brute(this.scene, new THREE.Vector3(12.0, 0.1, 42.0));
 
     // 3. Firearms and Collectibles
     this.weapons = new Weapons(this.scene);
     this.collectibles = new Collectibles(this.scene);
+
+    // 4. Playable FPS 0.2 Gameplay Subsystems
+    this.collision = new CollisionSystem();
+    this.collision.registerWorldColliders();
+
+    this.fpsController = new FPSController(
+      this.camera,
+      this.rendererManager.renderer.domElement,
+      this.collision
+    );
+    this.scene.add(this.fpsController.yawObject);
+
+    this.viewmodel = new FPSViewmodel(this.camera);
+
+    this.weaponManager = new WeaponManager(
+      this.scene,
+      this.camera,
+      this.viewmodel,
+      this.collision,
+      this.fpsController
+    );
+
+    this.zombieManager = new ZombieManager(this.scene, this.collision);
+    this.weaponManager.zombieManager = this.zombieManager;
+
+    this.pickupManager = new PickupManager(this.scene, this.collision);
+
+    // Wire controller callbacks
+    this.fpsController.onFootstep = (isSprinting) => {
+      this.audioManager.playFootstep(isSprinting);
+    };
+
+    this.fpsController.onPauseStateChange = (isPaused) => {
+      if (this.fpsInterface) {
+        if (isPaused) this.fpsInterface.openPauseMenu();
+        else this.fpsInterface.closePauseMenu();
+      }
+    };
+
+    // Wire pickup collection
+    this.pickupManager.onCollect = (item) => {
+      if (item.type === 'medkit') {
+        const curHp = this.fpsInterface ? this.fpsInterface.playerHealth : 100;
+        const newHp = Math.min(100, curHp + item.amount);
+        if (this.fpsInterface) {
+          this.fpsInterface.updateHealth(newHp);
+          this.fpsInterface.showPickupNotice(item.label);
+        }
+      } else if (item.type === 'ammo') {
+        this.weaponManager.addAmmo(item.wepType, item.amount);
+        if (this.fpsInterface) {
+          this.fpsInterface.showPickupNotice(item.label);
+        }
+      }
+    };
 
     // Window resize binding
     window.addEventListener('resize', () => {
@@ -210,6 +283,52 @@ export class SceneManager {
     return preset;
   }
 
+  toggleGameMode() {
+    this.gameMode = (this.gameMode === 'fps') ? 'spectator' : 'fps';
+
+    if (this.gameMode === 'spectator') {
+      // Detach camera from FPS controller
+      this.fpsController.pitchObject.remove(this.camera);
+      this.scene.add(this.camera);
+      this.cameraController.enabled = true;
+      this.cameraController.setFocus('overview', false);
+      this.viewmodel.root.visible = false;
+      if (this.fpsController.isPointerLocked) {
+        this.fpsController.exitLock();
+      }
+    } else {
+      // Attach camera to FPS controller
+      this.scene.remove(this.camera);
+      this.fpsController.pitchObject.add(this.camera);
+      this.cameraController.enabled = false;
+      this.viewmodel.root.visible = true;
+      this.fpsController.requestLock();
+    }
+    return this.gameMode;
+  }
+
+  restartSurvivalGame() {
+    if (this.fpsController) {
+      this.fpsController.teleport(new THREE.Vector3(0, 0.15, 3.5), Math.PI);
+    }
+    if (this.zombieManager) {
+      this.zombieManager.reset();
+    }
+    if (this.pickupManager) {
+      this.pickupManager.reset();
+    }
+    if (this.weaponManager) {
+      // Reset ammo
+      for (const wep of Object.values(this.weaponManager.weapons)) {
+        wep.currentMag = wep.magSize;
+        if (wep.id === 'rifle') wep.reserveAmmo = 120;
+        else if (wep.id === 'shotgun') wep.reserveAmmo = 32;
+        else if (wep.id === 'pistol') wep.reserveAmmo = 60;
+      }
+      this.weaponManager.notifyAmmo();
+    }
+  }
+
   animate() {
     requestAnimationFrame(this.animate);
 
@@ -249,7 +368,26 @@ export class SceneManager {
     }
 
     // Dynamic directional shadow center follows camera target (keeps shadows sharp with low memory)
-    this.lightingManager.setShadowCenter(this.cameraController.controls.target);
+    if (this.gameMode === 'fps') {
+      this.fpsController.update(delta);
+      this.viewmodel.update(delta, this.fpsController.isMoving, this.fpsController.isSprinting);
+      this.weaponManager.update(delta);
+      this.zombieManager.update(delta, this.fpsController.position);
+      this.pickupManager.update(delta, this.fpsController.position, this.pickupManager.onCollect);
+      this.lightingManager.setShadowCenter(this.fpsController.position);
+
+      // Update current region in UI
+      const region = this.chunkManager.getRegionName(this.fpsController.position.z);
+      const regLabel = document.getElementById('current-region-label');
+      if (regLabel) {
+        if (region === 'city') regLabel.textContent = 'REGION A: ABANDONED CITY';
+        else if (region === 'jungle') regLabel.textContent = 'REGION C: DENSE JUNGLE';
+        else regLabel.textContent = 'REGION B: MEDICAL CAMP';
+      }
+    } else {
+      this.cameraController.update(delta);
+      this.lightingManager.setShadowCenter(this.cameraController.controls.target);
+    }
 
     // Dynamic frustum culling across all 18 world chunks
     if (this.chunkManager) {
@@ -258,7 +396,6 @@ export class SceneManager {
 
     // Update sub-managers
     this.lightingManager.update(delta);
-    this.cameraController.update(delta);
     this.atmosphere.update(delta, this.lightingManager.isNightTime());
 
     // Update 3 connected regions
@@ -268,8 +405,6 @@ export class SceneManager {
 
     // Update characters
     if (this.survivor) this.survivor.update(delta);
-    if (this.zombie) this.zombie.update(delta);
-    if (this.brute) this.brute.update(delta);
 
     if (this.collectibles) this.collectibles.update(delta);
 

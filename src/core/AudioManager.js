@@ -242,6 +242,243 @@ export class AudioManager {
     }
   }
 
+  // --- PLAYABLE FPS PROCEDURAL SOUND SYNTHESIS ---
+
+  playFootstep(isSprinting = false) {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(isSprinting ? 220 : 160, now);
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(isSprinting ? 110 : 85, now);
+      osc.frequency.exponentialRampToValueAtTime(35, now + 0.08);
+
+      const vol = isSprinting ? 0.09 : 0.05;
+      gain.gain.setValueAtTime(vol, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.masterGain);
+
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch (e) {}
+  }
+
+  playJump() {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(280, now + 0.12);
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.14);
+    } catch (e) {}
+  }
+
+  playGunshot(type = 'rifle') {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+
+      // 1. Transient noise punch
+      const bufferSize = this.ctx.sampleRate * 0.18;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.035));
+      }
+
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const noiseFilter = this.ctx.createBiquadFilter();
+      const noiseGain = this.ctx.createGain();
+
+      if (type === 'shotgun') {
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.setValueAtTime(1200, now);
+        noiseGain.gain.setValueAtTime(0.35, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+      } else if (type === 'pistol') {
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(1800, now);
+        noiseGain.gain.setValueAtTime(0.22, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
+      } else {
+        // Rifle
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(1400, now);
+        noiseGain.gain.setValueAtTime(0.28, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      }
+
+      noise.connect(noiseFilter);
+      noiseFilter.connect(noiseGain);
+      noiseGain.connect(this.masterGain);
+      noise.start(now);
+
+      // 2. Low-frequency punch / thud
+      const kick = this.ctx.createOscillator();
+      const kickGain = this.ctx.createGain();
+      kick.type = 'sine';
+      kick.frequency.setValueAtTime(type === 'shotgun' ? 180 : 220, now);
+      kick.frequency.exponentialRampToValueAtTime(45, now + 0.12);
+      kickGain.gain.setValueAtTime(type === 'shotgun' ? 0.38 : 0.25, now);
+      kickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      kick.connect(kickGain);
+      kickGain.connect(this.masterGain);
+      kick.start(now);
+      kick.stop(now + 0.12);
+    } catch (e) {}
+  }
+
+  playEmptyClick() {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1800, now);
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.03);
+    } catch (e) {}
+  }
+
+  playReload() {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      // Click 1 (Mag release)
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'triangle';
+      osc1.frequency.setValueAtTime(750, now);
+      osc1.frequency.exponentialRampToValueAtTime(320, now + 0.05);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+      osc1.connect(gain1);
+      gain1.connect(this.masterGain);
+      osc1.start(now);
+      osc1.stop(now + 0.06);
+
+      // Click 2 (Mag insert + bolt rack)
+      const osc2 = this.ctx.createOscillator();
+      const gain2 = this.ctx.createGain();
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(450, now + 0.32);
+      osc2.frequency.exponentialRampToValueAtTime(950, now + 0.40);
+      gain2.gain.setValueAtTime(0.0, now);
+      gain2.gain.setValueAtTime(0.14, now + 0.32);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+      osc2.connect(gain2);
+      gain2.connect(this.masterGain);
+      osc2.start(now + 0.32);
+      osc2.stop(now + 0.42);
+    } catch (e) {}
+  }
+
+  playPlayerHurt() {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(50, now + 0.22);
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } catch (e) {}
+  }
+
+  playZombieGrowl(pitchMult = 1.0) {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      const filter = this.ctx.createBiquadFilter();
+
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(280 * pitchMult, now);
+      filter.Q.setValueAtTime(3.0, now);
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(95 * pitchMult, now);
+      osc.frequency.linearRampToValueAtTime(70 * pitchMult, now + 0.35);
+
+      gain.gain.setValueAtTime(0.16, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.4);
+    } catch (e) {}
+  }
+
+  playZombieHit() {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(340, now);
+      osc.frequency.exponentialRampToValueAtTime(90, now + 0.08);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch (e) {}
+  }
+
+  playPickup() {
+    if (!this.ctx || this.isMuted) return;
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, now); // D5
+      osc.frequency.setValueAtTime(880.00, now + 0.08); // A5
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.connect(gain);
+      gain.connect(this.masterGain);
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } catch (e) {}
+  }
+
   dispose() {
     if (this.fireTimer) clearTimeout(this.fireTimer);
     if (this.cricketTimer) clearTimeout(this.cricketTimer);
